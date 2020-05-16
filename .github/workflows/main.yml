@@ -12,7 +12,7 @@ jobs:
     - name: Publish to Registry
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
-        name: NeoNX01/terraria/terraria-server
+        name: neonx01/terraria/terraria-server
         username: ${{ github.actor }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         registry: docker.pkg.github.com
