@@ -1,37 +1,37 @@
-FROM alpine:3.11.6 AS base
+FROM mono
 
-RUN apk add --update-cache \
-    unzip
+# Update and install a zip utility
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y vim zip && \
+    apt-get clean
 
-# Download and install TShock
-ENV TSHOCK_VERSION=4.3.26 
-
-ADD https://github.com/NyxStudios/TShock/releases/download/v$TSHOCK_VERSION/tshock_$TSHOCK_VERSION.zip /
-RUN unzip tshock_$TSHOCK_VERSION.zip -d /tshock && \
-    rm tshock_$TSHOCK_VERSION.zip && \
-    chmod 777 /tshock/TerrariaServer.exe
-
-FROM mono:6.8.0.96
-
-LABEL maintainer="Ryan Sheehan <rsheehan@gmail.com>"
-
-# Create symbolic link to ServerLog.txt
 # fix for favorites.json error
-RUN mkdir /world /tshock && \
-    touch /world/ServerLog.txt && \
-    ln -s /world/ServerLog.txt /tshock/ServerLog.txt && \
-    rm -rf /world && \
-    favorites_path="/root/My Games/Terraria" && \
-    mkdir -p "$favorites_path" && \
-    echo "{}" > "$favorites_path/favorites.json"
+RUN favorites_path="/root/My Games/Terraria" && mkdir -p "$favorites_path" && echo "{}" > "$favorites_path/favorites.json"
 
-COPY --from=base /tshock /tshock
+# Download and install Terraria
+ENV VANILLA_VERSION=1353
+
+RUN mkdir /tmp/terraria && \
+    cd /tmp/terraria && \
+    curl -sL http://terraria.org/server/terraria-server-$VANILLA_VERSION.zip --output terraria-server.zip && \
+    unzip -q terraria-server.zip && \
+    mv */Linux /vanilla && \
+    mv */Windows/serverconfig.txt /vanilla/serverconfig-default.txt && \
+    rm -R /tmp/* && \
+    chmod +x /vanilla/TerrariaServer* && \
+    if [ ! -f /vanilla/TerrariaServer ]; then echo "Missing /vanilla/TerrariaServer"; exit 1; fi
+
+COPY run-vanilla.sh /vanilla/run.sh
+
+# Commit Hash Metadata
+ARG VCS_REF
+LABEL org.label-schema.vcs-ref=$VCS_REF \
+    org.label-schema.vcs-url="https://github.com/beardedio/terraria"
 
 # Allow for external data
-VOLUME ["/world", "/tshock/ServerPlugins"]
+VOLUME ["/config"]
 
-# Set working directory to server
-WORKDIR /tshock
-
-# run the server
-ENTRYPOINT ["mono", "--server", "--gc=sgen", "-O=all", "TerrariaServer.exe", "-configpath", "/world", "-worldpath", "/world", "-logpath", "/world"]
+# Run the server
+WORKDIR /vanilla
+CMD ["./run.sh"]
